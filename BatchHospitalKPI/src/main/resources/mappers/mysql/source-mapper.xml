@@ -4,7 +4,7 @@
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
   
 <mapper namespace="SourceMapper">
-    <select id="selectPhoneInside" parameterType="String" resultType="java.util.HashMap">
+    <select id="selectPhoneInside" parameterType="java.util.HashMap" resultType="java.util.HashMap">
     	/* source-mapper.xml | selectPhoneInside */
 		SELECT
 			ID
@@ -13,8 +13,8 @@
 			,PART
 			,PHONE
 		FROM
-			PHONE_INSIDE
+			BUCHEON.PHONE_INSIDE
 		WHERE
-			PART = #{part}
+			DEPARTMENT = #{department}
 	</select>
 </mapper>

@@ -6,7 +6,7 @@
 <mapper namespace="TargetMapper">
 	<insert id="insertPhoneInside" parameterType="java.util.HashMap">
 		/* target-mapper.xml | insertPhoneInside */
-		INSERT INTO PHONE_INSIDE (
+		INSERT INTO SPRING_BATCH.PHONE_INSIDE (
 			ID
 			,HEADQUARTER
 			,DEPARTMENT
@@ -17,7 +17,7 @@
 		(
 			#{ID}
 			,#{HEADQUARTER}
-			.#{DEPARTMENT}
+			,#{DEPARTMENT}
 			,#{PART}
 			,#{PHONE}
 		)
