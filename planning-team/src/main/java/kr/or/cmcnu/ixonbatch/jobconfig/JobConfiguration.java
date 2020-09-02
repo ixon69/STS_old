@@ -1,6 +1,7 @@
 package kr.or.cmcnu.ixonbatch.jobconfig;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.sql.DataSource;
@@ -28,6 +29,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import kr.or.cmcnu.ixonbatch.model.CommonDataset;
+import kr.or.cmcnu.ixonbatch.processor.ConvertDatasetProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,15 +52,15 @@ public class JobConfiguration {
 
     @Bean
     protected Step step1(ItemReader<HashMap> reader,
-//    						ItemProcessor<HashMap, HashMap> processor,
-    						ItemWriter<HashMap> writer) {
+    						ItemProcessor<HashMap, List<CommonDataset>> processor,
+    						ItemWriter<List<CommonDataset>> writer) {
         return steps.get("step1")
-            .<HashMap, HashMap> chunk(10)
+            .<HashMap, List<CommonDataset>> chunk(10)
             .reader(reader)
-//          .processor(itemProcessor)
+            .processor(processor)
             .writer(writer)
             .build();
-    }    
+    }
     
     @Bean
     @JobScope
@@ -73,11 +76,16 @@ public class JobConfiguration {
     }
 
     @Bean
-    @StepScope
-    public MyBatisBatchItemWriter<HashMap> writer(@Qualifier("tSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
-    	return new MyBatisBatchItemWriterBuilder<HashMap>()
+    public ItemProcessor<HashMap, List<CommonDataset>> processor() {
+        return new ConvertDatasetProcessor();
+    }
+    
+    @Bean
+    public MyBatisBatchItemWriter<List<CommonDataset>> writer(@Qualifier("tSqlSessionFactory") SqlSessionFactory sqlSessionFactory) {
+    	return new MyBatisBatchItemWriterBuilder<List<CommonDataset>>()
     				.sqlSessionFactory(sqlSessionFactory)
-    				.statementId("TargetMapper.insertPhoneInside")
+    				.assertUpdates(false)
+    				.statementId("TargetMapper.insertCommonDataset")
     				.build();
     }
     
