@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="TargetMapper">
+	<insert id="insertCommonDataset" parameterType="java.util.List">
+		/* target-mapper.xml | insertCommonDataset */
+		INSERT ALL
+		<foreach collection="list" item="item">
+			INTO PHSWM.IODSDATA (
+				dataset_name
+				,row_id
+				,column_id
+				,column_value
+				,fstrgstrid
+				,fstrgstdt
+				,lastupdtrid
+				,lastupdtdt
+			)
+			VALUES
+				('${item.dataset_name}'
+				,'${item.row_id}'
+				,'${item.column_id}'
+				,'${item.column_value}'
+				,'${item.fstrgstrid}'
+				,SYSDATE
+				,'${item.lastupdtrid}'
+				,SYSDATE)
+		</foreach>
+		SELECT * FROM DUAL
+	</insert>
+</mapper>
