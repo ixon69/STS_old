@@ -614,12 +614,6 @@ SELECT SUBSTR(A.RECDD,1,6) YYMM
 ), T5 AS (
 SELECT SUM(CNT) 인원
   FROM TMP5
-), T6 AS (
-SELECT SUM(8-CASE WHEN ORDYN = 'Y' THEN TO_NUMBER(DUTFLAG) ELSE 8 END)/8 AS 외래진료일수
-  FROM PAM.PMBMHSCH
- WHERE HISTSTAT = 'Y'
-   AND BASEDD BETWEEN #{fromdd} AND #{todd}
-ORDER BY 1
 )
 SELECT SUBSTR(#{fromdd}, 1, 6) AS C01,
 		T2.점유병상 AS C02,
@@ -628,16 +622,15 @@ SELECT SUBSTR(#{fromdd}, 1, 6) AS C01,
         T3.응급경유입원 AS C05,
         T1.신환 AS C06,
         T1.외래합 AS C07,
-        T6.외래진료일수 AS C08,
-        T1.입원연인원 AS C09,
-        T1.입원실인원 AS C10,
-        T1.수술건수 AS C11,
-        T1.총진료비 AS C12,
-        T1.입원진료비 AS C13,
-        T1.외래진료비 AS C14,
-        T4.총의뢰 AS C15,
-        T5.인원 AS C16
-  FROM T1, T2, T3, T4, T5, T6
+        T1.입원연인원 AS C08,
+        T1.입원실인원 AS C09,
+        T1.수술건수 AS C10,
+        T1.총진료비 AS C11,
+        T1.입원진료비 AS C12,
+        T1.외래진료비 AS C13,
+        T4.총의뢰 AS C14,
+        T5.인원 AS C15
+  FROM T1, T2, T3, T4, T5
 ]]>
 	</select>
 </mapper>

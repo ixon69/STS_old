@@ -18,7 +18,7 @@ public class ConvertDatasetProcessor implements ItemProcessor<HashMap, List<Comm
 	@Override
 	public List<CommonDataset> process(HashMap hash) throws Exception {
 		List<CommonDataset> list = new ArrayList<>();
-		String uniqueKey = hash.get("C01").toString();
+		String uniqueKey = dataset_name + " " + hash.get("C01").toString();
 		String row_id = DigestUtils.sha256Hex(uniqueKey);
 		hash.forEach((key, value) -> {
 			String column_id = key.toString();
