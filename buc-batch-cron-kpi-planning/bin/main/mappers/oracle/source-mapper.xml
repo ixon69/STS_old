@@ -1,0 +1,636 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="SourceMapper">
+    <select id="selectMonthKPI" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+/* source-mapper.xml | selectMonthKPI */
+<![CDATA[
+WITH TMP1 AS (
+SELECT SUBSTR(A.ENDDD,1,6) AS 년월
+     , TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(A.ENDDD,1,6)||'01','yyyymmdd'),-2),'yyyy') AS 회계년
+     , A.ORDDEPTCD AS 진료과
+     , NVL(( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.ORDDEPTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ),A.ORDDEPTCD) AS 진료과명
+     , A.CENTCD       AS 센터
+     , NVL(( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.CENTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ),'-') AS 센터명
+     , NVL(SUM(A.NEWCNT  ),0) AS 신환
+     , NVL(SUM(A.FSTCNT  ),0) AS 초진
+     , NVL(SUM(A.RECNT   ),0) AS 재진
+     , NVL(SUM(A.NEWCNT+A.FSTCNT+A.RECNT),0) AS 외래합
+     , NVL(SUM(A.INCNT   ),0) AS 입원실인원
+     , NVL(SUM(A.INDAYCNT),0) AS 입원연인원
+     , NVL(SUM(A.DSCHCNT ),0) AS 퇴원실인원
+     , NVL(SUM(A.DSCHDAY ),0) AS 퇴원연인원
+     , NVL(SUM(A.EXAMT   ),0) AS 외래진료비
+     , NVL(SUM(A.INAMT   ),0) AS 입원진료비
+     , NVL(SUM(A.EXAMT+A.INAMT),0) AS 총진료비
+     , NVL(SUM(A.OPCNT   ),0) AS 수술건수
+     , NVL(SUM(A.REFAMT  ),0) AS 의뢰금액
+  FROM (
+        SELECT INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , CENTCD
+             , SUM(FSPEC + FGNRL )                     AS NEWCNT
+             , SUM(DFSPEC + DFGNRL + FRSPEC +  FRGNRL) AS FSTCNT
+             , SUM(SFSPEC + SFGNRL + RSPEC + RGNRL)    AS RECNT
+             , 0                          AS INCNT
+             , 0                          AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , 0                          AS EXAMT
+             , 0                          AS INAMT
+             , 0                          AS OPCNT 
+             , 0 AS REFAMT
+          FROM STS.SDPHOPSS
+         WHERE INSTCD      = '014'
+           AND ENDDD  BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND ORDSTAT     = 'O'
+           AND ETCORDFLAG != 'N'
+         GROUP BY
+               INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+             , CENTCD
+        UNION ALL
+        SELECT INSTCD
+             , INDD ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , '-' AS CENTCD
+             , COUNT(DISTINCT CASE WHEN FSEXAMFLAG IN ('F')     THEN ORDDEPTCD||PID||INDD||INACPTDT END) AS NEWCNT
+             , COUNT(DISTINCT CASE WHEN FSEXAMFLAG IN ('D','4','5') THEN ORDDEPTCD||PID||INDD||INACPTDT END) AS FSTCNT
+             , COUNT(DISTINCT CASE WHEN FSEXAMFLAG IN ('R','S') THEN ORDDEPTCD||PID||INDD||INACPTDT END) AS RECNT
+             , 0                          AS INCNT
+             , 0                          AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , 0                          AS EXAMT
+             , 0                          AS INAMT
+             , 0                          AS OPCNT 
+             , 0 AS REFAMT
+          FROM STS.SDCHADPT
+         WHERE INSTCD = '014'
+           AND INDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND IOFLAG <> 'I'
+         GROUP BY
+               INSTCD
+             , INDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+        UNION ALL
+        SELECT INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , '-' AS CENTCD
+             , 0                          AS NEWCNT
+             , 0                          AS FSTCNT
+             , 0                          AS RECNT
+             , COUNT(DISTINCT ENDDD||PID) AS INCNT
+             , 0                          AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , 0                          AS EXAMT
+             , 0                          AS INAMT
+             , 0                          AS OPCNT 
+             , 0 AS REFAMT
+          FROM STS.SDCHADPT C
+         WHERE INSTCD = '014'
+           AND ENDDD  BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND (   INDD = ENDDD
+                OR EXISTS ( SELECT 1
+                              FROM STS.SDCHADPT X
+                             WHERE INSTCD = C.INSTCD
+                               AND ENDDD  = TO_CHAR(TO_DATE(C.ENDDD)-1,'yyyymmdd')
+                               AND PID    = C.PID 
+                               AND INDD   = C.INDD
+                               AND IOFLAG !='I'
+                               AND NOT EXISTS ( SELECT 1
+                                                  FROM STS.SDCHADPT
+                                                 WHERE INSTCD = X.INSTCD
+                                                   AND ENDDD  = X.ENDDD
+                                                   AND PID    = X.PID
+                                                   AND INDD   = X.INDD
+                                                   AND IOFLAG ='I')))
+           AND IOFLAG = 'I'   
+           AND ORDDEPTCD NOT IN ('2030000000') -- 20120309 알콜센터 제외
+         GROUP BY
+               INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+        UNION ALL
+        SELECT INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , '-' AS CENTCD
+             , 0                          AS NEWCNT
+             , 0                          AS FSTCNT
+             , 0                          AS RECNT
+             , 0                          AS INCNT
+             , COUNT(DISTINCT ENDDD||PID) AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , 0                          AS EXAMT
+             , 0                          AS INAMT
+             , 0                          AS OPCNT 
+             , 0 AS REFAMT
+          FROM STS.SDCHADPT
+         WHERE INSTCD = '014'
+           AND ENDDD  BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND IOFLAG = 'I'   
+           AND (   INDSCHSTAT = 'A'
+                OR ( INDSCHSTAT IN ('D','T') AND INDD = ENDDD )
+               )
+           AND ORDDEPTCD NOT IN ('2030000000') -- 20120309 알콜센터 제외
+         GROUP BY
+               INSTCD   
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+        UNION ALL
+        SELECT INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , '-' AS CENTCD
+             , 0                          AS NEWCNT
+             , 0                          AS FSTCNT
+             , 0                          AS RECNT
+             , 0                          AS INCNT
+             , 0                          AS INDAYCNT
+             , COUNT(DISTINCT ENDDD||PID) AS DSCHCNT
+             , SUM(INDAY)                 AS DSCHDAY
+             , 0                          AS EXAMT
+             , 0                          AS INAMT
+             , 0                          AS OPCNT 
+             , 0 AS REFAMT
+          FROM STS.SDCHADPT
+         WHERE INSTCD = '014'
+           AND ENDDD  BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND IOFLAG = 'I'   
+           AND INDSCHSTAT IN ('D','T')
+           AND MSKIND = 'M'
+           AND ORDDEPTCD NOT IN ('2030000000') -- 20120309 알콜센터 제외
+         GROUP BY
+               INSTCD   
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+        UNION ALL   
+        SELECT INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2280000000' AND ERORDDEPTCD != '-' THEN DECODE(ERORDDEPTCD,'2010300000','위장관',ERORDDEPTCD) -- 2017.09 적용
+                    WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , CENTCD
+             , 0                          AS NEWCNT
+             , 0                          AS FSTCNT
+             , 0                          AS RECNT
+             , 0                          AS INCNT
+             , 0                          AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , SUM(DECODE(ORDTYPE,'I',0,TOTAMT)) AS EXAMT
+             , SUM(DECODE(ORDTYPE,'I',TOTAMT,0)) AS INAMT
+             , 0                          AS OPCNT 
+             , 0 AS REFAMT
+          FROM STS.SDPHMDED
+         WHERE INSTCD = '014'
+           AND ENDDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND ENDFLAG ='00'
+         GROUP BY
+               INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2280000000' AND ERORDDEPTCD != '-' THEN DECODE(ERORDDEPTCD,'2010300000','위장관',ERORDDEPTCD) -- 2017.09 적용
+                    WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+             , CENTCD
+        UNION ALL
+        SELECT A.INSTCD
+             , A.OPCNFMDD ENDDD
+             , CASE WHEN PERFDEPTCD = '2010300000' THEN CASE WHEN PERFDRID IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE PERFDEPTCD END                 AS ORDDEPTCD
+             , '-' AS CENTCD
+             , 0                          AS NEWCNT
+             , 0                          AS FSTCNT
+             , 0                          AS RECNT
+             , 0                          AS INCNT
+             , 0                          AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , 0                          AS EXAMT
+             , 0                          AS INAMT
+             , COUNT(*)               AS OPCNT 
+             , 0 AS REFAMT
+          FROM EMR.MMOHOPRS A
+             , EMR.MNPHOPCR B
+         WHERE A.INSTCD = '014'
+           AND A.OPCNFMDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND A.OPHISTCD  = 'O'
+           AND A.OPSTATCD >= '50'
+           AND A.OPROOMCD != '0041'
+           AND B.INSTCD    = A.INSTCD
+           AND B.OPRSRVNO  = A.OPRSRVNO
+           --and a.opcd != '3324.000.02' -- 기관지경 제외 -- 2011년 12월부터 수정함
+           AND A.OPCD NOT IN ('3324.000.02','3323.000.04','3323.000.05') -- 2013년 1월 수정
+           AND A.OPCD NOT IN ('3323.000.06','3322.001.00') -- 2018년 4월 추가
+         GROUP BY
+               A.INSTCD
+             , A.OPCNFMDD
+             , CASE WHEN PERFDEPTCD = '2010300000' THEN CASE WHEN PERFDRID IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE PERFDEPTCD END
+        UNION ALL
+        SELECT INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END                 AS ORDDEPTCD
+             , CENTCD
+             , 0                          AS NEWCNT
+             , 0                          AS FSTCNT
+             , 0                          AS RECNT
+             , 0                          AS INCNT
+             , 0                          AS INDAYCNT
+             , 0                          AS DSCHCNT
+             , 0                          AS DSCHDAY
+             , 0 AS EXAMT
+             , 0 AS INAMT
+             , 0 AS OPCNT
+             , SUM(TOTAMT) AS REFAMT
+          FROM STS.SDPHMDED A
+         WHERE INSTCD = '014'
+           AND ENDDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND ENDFLAG ='00'
+           AND EXISTS ( SELECT 1
+                          FROM AST.ARCMREQP
+                         WHERE INSTCD = A.INSTCD
+                           AND PID    = A.PID
+                           AND ORDDD  BETWEEN TO_CHAR(TO_DATE(DECODE(A.INDD,'-',A.ORDDD,A.INDD),'yyyymmdd')-30,'yyyymmdd')
+                                          AND DECODE(A.INDD,'-',A.ORDDD,A.INDD)
+                           AND DELDD = '00000000'
+                      )
+         GROUP BY
+               INSTCD
+             , ENDDD
+             , CASE WHEN ORDDEPTCD = '2010300000' THEN CASE WHEN MEDISPCL IN ('84015132','90015033','10501176','10403016','20800280') THEN '간담도' ELSE '위장관' END
+                    ELSE ORDDEPTCD END
+             , CENTCD
+       ) A
+ GROUP BY 
+       A.INSTCD
+     , SUBSTR(A.ENDDD,1,6)
+     , A.ORDDEPTCD
+     , A.CENTCD
+ORDER BY 1
+), T1 AS (
+SELECT SUM(CASE WHEN 진료과 = '2280000000' THEN 외래합 ELSE 0 END) 응급환자,
+    SUM(신환) 신환,
+    SUM(외래합) 외래합,
+    SUM(입원연인원) 입원연인원,
+    SUM(입원실인원) 입원실인원,
+    SUM(수술건수) 수술건수,
+    SUM(총진료비) 총진료비,
+    SUM(입원진료비) 입원진료비,
+    SUM(외래진료비) 외래진료비
+FROM TMP1
+), TMP2 AS (
+SELECT A.ENDDD AS 일자
+     , SUBSTR(A.ENDDD,1,6) AS 년월
+     , TO_CHAR(ADD_MONTHS(TO_DATE(A.ENDDD,'yyyymmdd'),-2),'yyyy') AS 회계년
+     , CASE WHEN TO_CHAR(TO_DATE(A.ENDDD,'yyyymmdd'),'D') IN ('1','7') OR E.HOLYYN = 'Y' THEN 'Y' ELSE 'N' END AS 주말여부
+     , DECODE(TO_CHAR(TO_DATE(A.ENDDD,'yyyymmdd'),'D'),'1','일'
+                                                      ,'2','월'
+                                                      ,'3','화'
+                                                      ,'4','수'
+                                                      ,'5','목'
+                                                      ,'6','금'
+                                                      ,'7','토'
+                                                       ) AS 요일
+     , E.HOLYYN     AS 휴일여부
+     , E.HOLINM     AS 휴일명
+     , SUM(A.TOTBED) AS 가동병상
+     , SUM(A.INCNT)  AS 점유병상
+     , SUM(A.TOTBED-A.INCNT) AS 빈병상
+  FROM (
+        SELECT A.INSTCD
+             , A.ENDDD
+             , A.WARD
+             , A.ROOMGRDECD
+             , A.ROOMTYPECD
+             , SUM(CASE WHEN A.BEDFLAG IN ('A','C') THEN A.BEDCNT ELSE 0 END) AS TOTBED
+             , SUM(A.INHOSPCNT)                                               AS INCNT  
+          FROM STS.SDPHIWPS A
+         WHERE A.INSTCD = '014'
+           AND A.ENDDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND A.WARD NOT IN ('2032100000','2280200000')
+         GROUP BY
+               A.INSTCD
+             , A.ENDDD
+             , A.WARD
+             , A.ROOMGRDECD
+             , A.ROOMTYPECD
+       ) A
+     , (
+        SELECT BASEDD, HOLINM, 'Y' HOLYYN
+          FROM PAM.PMBMHSCH
+         WHERE INSTCD = '014'
+           AND HISTSTAT = 'Y'
+           AND HOLIFLAG NOT IN ('0')
+           --and ordyn = 'N'
+           AND DUTFLAG != '0' -- 20120102 수정
+           AND TO_CHAR(TO_DATE(BASEDD,'yyyymmdd'),'D') != '1' -- 일요일제외 
+       ) E
+ WHERE E.BASEDD(+) = A.ENDDD 
+ GROUP BY A.ENDDD
+     , CASE WHEN TO_CHAR(TO_DATE(A.ENDDD,'yyyymmdd'),'D') IN ('1','7') OR E.HOLYYN = 'Y' THEN 'Y' ELSE 'N' END
+     , DECODE(TO_CHAR(TO_DATE(A.ENDDD,'yyyymmdd'),'D'),'1','일'
+                                                      ,'2','월'
+                                                      ,'3','화'
+                                                      ,'4','수'
+                                                      ,'5','목'
+                                                      ,'6','금'
+                                                      ,'7','토'
+                                                       )
+     , E.HOLYYN
+     , E.HOLINM
+ ORDER BY A.ENDDD
+ ), T2 AS (
+ SELECT SUM(점유병상) 점유병상,
+        SUM(가동병상) 가동병상
+   FROM TMP2
+), TMP3 AS (
+SELECT SUBSTR(A.INDD,1,6) AS 년월
+     , TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(A.INDD,1,6)||'01','yyyymmdd'),-2),'yyyy') AS 회계년
+     , A.INDEPTCD AS 입원진료과
+     , ( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.INDEPTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ) AS 입원진료과명
+     , A.INMEDDR AS 입원의사
+     , ( SELECT USERNM
+           FROM COM.ZSUMUSRB X
+          WHERE USERID = A.INMEDDR
+            AND USERTODD = ( SELECT MAX(USERTODD)
+                               FROM COM.ZSUMUSRB
+                              WHERE USERID = X.USERID
+                           ) 
+       ) AS 입원의사명 
+     , COUNT(*) 응급경유입원
+  FROM (
+        SELECT INSTCD
+             , DECODE(INPATH,'2','Y','7','Y',NULL) ERYN
+             , PID
+             , INDD
+             , CRETNO
+             , DSCHDD
+             , INDSCHACPTSTAT
+             , ( SELECT ORDDEPTCD
+                   FROM PAM.PMIHICDR X
+                  WHERE INSTCD = A.INSTCD
+                    AND PID    = A.PID
+                    AND INDD   = A.INDD
+                    AND CRETNO = A.CRETNO
+                    AND ORDDEPTCD != '2280000000'
+                    AND HISTSTAT = 'Y'
+                    AND FROMDD = ( SELECT MIN(FROMDD)
+                                     FROM PAM.PMIHICDR
+                                    WHERE INSTCD = X.INSTCD
+                                      AND PID    = X.PID
+                                      AND INDD   = X.INDD
+                                      AND CRETNO = X.CRETNO
+                                      AND ORDDEPTCD != '2280000000'
+                                      AND HISTSTAT = 'Y'
+                                 )
+               ) INDEPTCD
+             , ( SELECT MEDISPCLID
+                   FROM PAM.PMIHICDR X
+                  WHERE INSTCD = A.INSTCD
+                    AND PID    = A.PID
+                    AND INDD   = A.INDD
+                    AND CRETNO = A.CRETNO
+                    AND ORDDEPTCD != '2280000000'
+                    AND HISTSTAT = 'Y'
+                    AND FROMDD = ( SELECT MIN(FROMDD)
+                                     FROM PAM.PMIHICDR
+                                    WHERE INSTCD = X.INSTCD
+                                      AND PID    = X.PID
+                                      AND INDD   = X.INDD
+                                      AND CRETNO = X.CRETNO
+                                      AND ORDDEPTCD != '2280000000'
+                                      AND HISTSTAT = 'Y'
+                                 )
+               ) INMEDDR
+             , ( SELECT ORDDEPTCD
+                   FROM PAM.PMIHICDR X
+                  WHERE INSTCD = A.INSTCD
+                    AND PID    = A.PID
+                    AND INDD   = A.INDD
+                    AND CRETNO = A.CRETNO
+                    AND ORDDEPTCD != '2280000000'
+                    AND HISTSTAT = 'Y'
+                    AND FROMDD = ( SELECT MAX(FROMDD)
+                                     FROM PAM.PMIHICDR
+                                    WHERE INSTCD = X.INSTCD
+                                      AND PID    = X.PID
+                                      AND INDD   = X.INDD
+                                      AND CRETNO = X.CRETNO
+                                      AND ORDDEPTCD != '2280000000'
+                                      AND HISTSTAT = 'Y'
+                                 )
+               ) OUTDEPTCD
+          FROM PAM.PMIHINPT A
+         WHERE INSTCD     = '014'
+           AND HISTSTAT   = 'Y'
+           AND INDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+           AND BRATEFLAG = 'I'
+           AND MSKIND = 'M'
+           AND DECODE(INPATH,'2','Y','7','Y',NULL) = 'Y'
+       ) A
+ WHERE INDEPTCD IS NOT NULL
+   AND OUTDEPTCD IS NOT NULL
+ GROUP BY
+       A.INSTCD
+     , SUBSTR(A.INDD,1,6)
+     , A.INDEPTCD
+     , A.INMEDDR
+ ORDER BY 1 
+), T3 AS (
+SELECT SUM(응급경유입원) 응급경유입원
+  FROM TMP3
+), TMP4 AS (
+SELECT SUBSTR(A.ORDDD,1,6) YYMM
+     , TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(A.ORDDD,1,6)||'01','yyyymmdd'),-2),'yyyy') AS 회계년
+     , A.ORDDEPTCD
+     , ( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.ORDDEPTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ) DEPTNM
+     , A.CENTCD
+     , NVL(( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.CENTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ),'-') CENTNM
+     , COUNT(*) TOTCNT
+     , NVL(SUM(CASE WHEN A.FSEXAMFLAG = 'F' THEN 1 END),0) NEWCNT 
+  FROM ( SELECT A.INSTCD
+              , A.PID
+              , A.ORDDD
+              , A.CRETNO
+              , A.ORDDEPTCD
+              , A.ORDDRID
+              , A.FSEXAMFLAG
+              , A.CHOSPATH
+              , NVL(( SELECT CENTCD
+                    FROM PAM.PMOHOTPT
+                   WHERE INSTCD = A.INSTCD
+                     AND PID    = A.PID
+                     AND ORDDD  = A.ORDDD
+                     AND CRETNO = A.CRETNO
+                     AND HISTSTAT IN ('R','T')
+                ),'-') CENTCD 
+           FROM AST.ARCMREQP A
+          WHERE A.INSTCD = '014'
+            AND A.ORDDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+                            AND DELDD = '00000000'
+       ) A
+ GROUP BY
+       A.INSTCD
+     , SUBSTR(A.ORDDD,1,6)
+     , A.ORDDEPTCD
+     , A.CENTCD
+ORDER BY 1
+), T4 AS (
+SELECT SUM(TOTCNT) 총의뢰
+  FROM TMP4
+), TMP5 AS (
+SELECT SUBSTR(A.RECDD,1,6) YYMM
+     , TO_CHAR(ADD_MONTHS(TO_DATE(A.RECDD,'yyyymmdd'),-2),'yyyy') AS 회계년
+     , A.ORDDEPTCD
+     , ( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.ORDDEPTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ) DEPTNM
+     , A.ORDDRID
+     , ( SELECT USERNM
+           FROM COM.ZSUMUSRB X
+          WHERE USERID = A.ORDDRID
+            AND USERTODD = ( SELECT MAX(USERTODD)
+                               FROM COM.ZSUMUSRB
+                              WHERE USERID = X.USERID
+                           )
+       ) DRNM
+     , A.CENTCD
+     , NVL(( SELECT DEPTHNGNM
+           FROM COM.ZSDDDEPT X
+          WHERE INSTCD = A.INSTCD
+            AND DEPTCD = A.CENTCD
+            AND VALITODD = ( SELECT MAX(VALITODD)
+                               FROM COM.ZSDDDEPT
+                              WHERE INSTCD = X.INSTCD
+                                AND DEPTCD = X.DEPTCD
+                           )
+       ),'-') CENTNM
+     , COUNT(*) CNT
+  FROM ( SELECT A.INSTCD
+              , A.RECDD
+              , A.ORDDEPTCD
+              , A.ORDDRID
+              , NVL(( SELECT CENTCD
+                    FROM PAM.PMOHOTPT
+                   WHERE INSTCD    = A.INSTCD
+                     AND PID       = A.PID
+                     AND ORDDD     = A.ORDDD
+                     AND ORDDEPTCD = A.ORDDEPTCD
+                     AND ORDDRID   = A.ORDDRID
+                     AND HISTSTAT IN ('R','T')
+                     AND ROWNUM = 1
+                ),'-') CENTCD
+           FROM AST.ARCMREPL A
+              , AST.ARCMREQA B
+          WHERE A.INSTCD = '014'
+            AND A.RECDD BETWEEN TO_CHAR(ADD_MONTHS(LAST_DAY(SYSDATE-1)+1,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+            AND A.REPLFLAG = 'A'
+            AND B.INSTCD   = A.INSTCD
+            AND B.PID      = A.PID
+            AND B.REPLSEQNO = A.REPLSEQNO
+            AND B.REQFLAG  = 'A'
+            AND B.ENDDD   != '00000000'
+       ) A
+ GROUP BY
+       A.INSTCD
+     , SUBSTR(A.RECDD,1,6)
+     , TO_CHAR(ADD_MONTHS(TO_DATE(A.RECDD,'yyyymmdd'),-2),'yyyy')
+     , A.ORDDEPTCD
+     , A.ORDDRID
+     , A.CENTCD
+ ORDER BY 1, 3
+), T5 AS (
+SELECT SUM(CNT) 인원
+  FROM TMP5
+)
+SELECT TO_CHAR(SYSDATE-1, 'YYYYMM') AS C01,
+		T2.점유병상 AS C02,
+		T2.가동병상 AS C03,
+        T1.응급환자 AS C04,
+        T3.응급경유입원 AS C05,
+        T1.신환 AS C06,
+        T1.외래합 AS C07,
+        T1.입원연인원 AS C08,
+        T1.입원실인원 AS C09,
+        T1.수술건수 AS C10,
+        T1.총진료비 AS C11,
+        T1.입원진료비 AS C12,
+        T1.외래진료비 AS C13,
+        T4.총의뢰 AS C14,
+        T5.인원 AS C15
+  FROM T1, T2, T3, T4, T5
+]]>
+	</select>
+</mapper>
